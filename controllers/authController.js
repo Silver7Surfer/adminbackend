@@ -27,12 +27,12 @@ export const register = async (req, res) => {
       }
     }
 
-    // Create new admin
+    // Create new admin with unverified status
     const newAdmin = await Admin.create({
       username,
       email,
       password,
-      // role defaults to 'admin' as defined in the schema
+      verificationStatus: 'unverified', // Set status explicitly (though default is already 'unverified')
       balance: 0
     });
 
@@ -41,14 +41,15 @@ export const register = async (req, res) => {
 
     // Return user data (excluding password)
     res.status(201).json({
-      message: 'Admin registered successfully',
+      message: 'Admin registered successfully. Please wait for account verification by a superadmin.',
       token,
       user: {
         id: newAdmin._id,
         username: newAdmin.username,
         email: newAdmin.email,
         role: newAdmin.role,
-        balance: newAdmin.balance
+        balance: newAdmin.balance,
+        verificationStatus: newAdmin.verificationStatus
       }
     });
   } catch (error) {
@@ -77,6 +78,14 @@ export const login = async (req, res) => {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
+    // Check if account is verified
+    if (admin.verificationStatus !== 'verified') {
+      return res.status(403).json({ 
+        message: 'Your account is not verified yet. Please wait for approval by a superadmin.',
+        verificationStatus: admin.verificationStatus
+      });
+    }
+
     // Generate token
     const token = generateToken(admin._id);
 
@@ -89,7 +98,8 @@ export const login = async (req, res) => {
         username: admin.username,
         email: admin.email,
         role: admin.role,
-        balance: admin.balance
+        balance: admin.balance,
+        verificationStatus: admin.verificationStatus
       }
     });
   } catch (error) {

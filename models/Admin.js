@@ -32,6 +32,11 @@ const adminSchema = new mongoose.Schema(
     balance: {
       type: Number,
       default: 0
+    },
+    verificationStatus: {
+      type: String,
+      enum: ['unverified', 'verified', 'rejected'],
+      default: 'unverified'
     }
   },
   { timestamps: true }
