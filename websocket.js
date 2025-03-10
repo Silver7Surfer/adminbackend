@@ -10,7 +10,7 @@ let io;
 export const initWebSocket = (server) => {
   io = new Server(server, {
     cors: {
-      origin: "http://localhost:5173", // Your frontend URL
+      origin: ["https://admin.bigwin.gold", "http://localhost:3000"], // Your frontend URL
       methods: ["GET", "POST"],
       credentials: true
     },
