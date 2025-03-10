@@ -1,4 +1,6 @@
 import mongoose from 'mongoose';
+import { sendEmail } from '../services/emailService.js';
+import { generateGameCredentialsEmail } from '../templates/gameCredentialsEmail.js';
 
 export const fetchAllGameProfiles = async (adminUsername, adminRole) => {
     try {
@@ -532,7 +534,7 @@ export const getPendingRequests = async (req, res) => {
 // Assign Game ID
 export const assignGameId = async (req, res) => {
     try {
-        const { userId, gameName, gameId } = req.body;
+        const { userId, gameName, gameId, gamePassword } = req.body;
         const adminUsername = req.admin.username;
         const adminRole = req.admin.role;
 
@@ -603,6 +605,17 @@ export const assignGameId = async (req, res) => {
             });
         }
 
+        // Update object with the fields to set
+        const updateFields = {
+            "games.$.gameId": gameId,
+            "games.$.profileStatus": 'active'
+        };
+        
+        // Add password if provided
+        if (gamePassword) {
+            updateFields["games.$.gamePassword"] = gamePassword;
+        }
+
         // Update game profile
         const result = await userGameProfileCollection.updateOne(
             { 
@@ -610,10 +623,7 @@ export const assignGameId = async (req, res) => {
                 "games.gameName": gameName
             },
             { 
-                $set: { 
-                    "games.$.gameId": gameId,
-                    "games.$.profileStatus": 'active'
-                }
+                $set: updateFields
             }
         );
 
@@ -628,6 +638,32 @@ export const assignGameId = async (req, res) => {
         const updatedProfile = await userGameProfileCollection.findOne({ 
             userId: new mongoose.Types.ObjectId(userId) 
         });
+
+        // Get user details to send email
+        const user = await usersCollection.findOne({ 
+            _id: new mongoose.Types.ObjectId(userId) 
+        });
+
+        // Send email with credentials if the user has an email
+        if (user && user.email) {
+            console.log("herer : ", user.email)
+            try {
+                const emailSent = await sendEmail(
+                    user.email,
+                    `Your ${gameName} Game Credentials`,
+                    generateGameCredentialsEmail(user.username || 'User', gameName, gameId, gamePassword || '')
+                );
+                
+                if (emailSent) {
+                    console.log(`Game credentials email sent to ${user.email}`);
+                } else {
+                    console.error(`Failed to send credentials email to ${user.email}`);
+                }
+            } catch (emailError) {
+                console.error('Failed to send credentials email:', emailError);
+                // We don't want to fail the entire operation if just the email fails
+            }
+        }
 
         res.json({
             success: true,
